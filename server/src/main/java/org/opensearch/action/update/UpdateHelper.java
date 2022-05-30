@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.LongSupplier;
 
 /**
@@ -101,7 +102,7 @@ public class UpdateHelper {
             throw new DocumentSourceMissingException(shardId, request.id());
         } else if (request.script() == null && request.doc() != null) {
             // The request has no script, it is a new doc that should be merged with the old document
-            return prepareUpdateIndexRequest(shardId, request, getResult, request.detectNoop());
+            return prepareUpdateIndexRequest(shardId, request, getResult, request.detectNoop(), nowInMillis);
         } else {
             // The request has a script (or empty script), execute the script and prepare a new index request
             return prepareUpdateScriptRequest(shardId, request, getResult, nowInMillis);
@@ -206,14 +207,26 @@ public class UpdateHelper {
      * Prepare the request for merging the existing document with a new one, can optionally detect a noop change. Returns a {@code Result}
      * containing a new {@code IndexRequest} to be executed on the primary and replicas.
      */
-    Result prepareUpdateIndexRequest(ShardId shardId, UpdateRequest request, GetResult getResult, boolean detectNoop) {
+    Result prepareUpdateIndexRequest(ShardId shardId, UpdateRequest request, GetResult getResult, boolean detectNoop, LongSupplier nowInMillis) {
         final IndexRequest currentRequest = request.doc();
         final String routing = calculateRouting(getResult, currentRequest);
         final Tuple<XContentType, Map<String, Object>> sourceAndContent = XContentHelper.convertToMap(getResult.internalSourceRef(), true);
         final XContentType updateSourceContentType = sourceAndContent.v1();
         final Map<String, Object> updatedSourceAsMap = sourceAndContent.v2();
+        var requestSourceMap = currentRequest.sourceAsMap();
 
-        final boolean noop = !XContentHelper.update(updatedSourceAsMap, currentRequest.sourceAsMap(), detectNoop);
+        // In order to avoid updating the doc with the same id and fix the data migration the following code has been added.
+        var existingType = (String) updatedSourceAsMap.get("type");
+        var newType = requestSourceMap.get("type");
+        if (existingType != null && !existingType.equalsIgnoreCase((String) newType)) {
+            var newId = UUID.randomUUID().toString();
+            logger.warn("we have the same doc [{}] with different type [{}], new type [{}], new id [{}]", request.id(), existingType, newType, newId);
+            request.id(newId);
+            currentRequest.id(newId);
+            return prepareUpsert(shardId, request, getResult, nowInMillis);
+        }
+
+        final boolean noop = !XContentHelper.update(updatedSourceAsMap, requestSourceMap, detectNoop);
 
         // We can only actually turn the update into a noop if detectNoop is true to preserve backwards compatibility and to handle cases
         // where users repopulating multi-fields or adding synonyms, etc.
