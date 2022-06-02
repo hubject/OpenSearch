@@ -222,7 +222,7 @@ public class UpdateHelper {
             var newId = UUID.randomUUID().toString();
             logger.warn("we have the same doc [{}] with different type [{}], new type [{}], new id [{}]", request.id(), existingType, newType, newId);
             request.id(newId);
-            currentRequest.id(newId);
+            currentRequest.id(null);
             return prepareUpsert(shardId, request, getResult, nowInMillis);
         }
 
