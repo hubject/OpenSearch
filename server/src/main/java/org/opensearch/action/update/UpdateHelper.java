@@ -215,13 +215,13 @@ public class UpdateHelper {
         final XContentType updateSourceContentType = sourceAndContent.v1();
         final Map<String, Object> updatedSourceAsMap = sourceAndContent.v2();
 
-        var requestSourceMap = currentRequest.sourceAsMap();
+        Map<String, Object> requestSourceMap = currentRequest.sourceAsMap();
 
         // In order to avoid updating the doc with the same id and fix the data migration the following code has been added.
-        var existingType = (String) updatedSourceAsMap.get("type");
-        var newType = requestSourceMap.get("type");
+        String existingType = (String) updatedSourceAsMap.get("type");
+        Object newType = requestSourceMap.get("type");
         if (existingType != null && !existingType.equalsIgnoreCase((String) newType)) {
-            var newId = UUID.randomUUID().toString();
+            String newId = UUID.randomUUID().toString();
             logger.warn("we have the same doc [{}] with different type [{}], new type [{}], new id [{}]", request.id(), existingType, newType, newId);
             request.id(newId);
             currentRequest.id(newId);
