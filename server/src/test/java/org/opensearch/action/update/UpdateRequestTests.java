@@ -594,13 +594,13 @@ public class UpdateRequestTests extends OpenSearchTestCase {
             createParser(JsonXContent.jsonXContent, new BytesArray("{\"doc\": {\"body\": \"foo\"}}"))
         );
 
-        UpdateHelper.Result result = updateHelper.prepareUpdateIndexRequest(shardId, request, getResult, true);
+        UpdateHelper.Result result = updateHelper.prepareUpdateIndexRequest(shardId, request, getResult, true, System::currentTimeMillis);
 
         assertThat(result.action(), instanceOf(UpdateResponse.class));
         assertThat(result.getResponseResult(), equalTo(DocWriteResponse.Result.NOOP));
 
         // Try again, with detectNoop turned off
-        result = updateHelper.prepareUpdateIndexRequest(shardId, request, getResult, false);
+        result = updateHelper.prepareUpdateIndexRequest(shardId, request, getResult, false, System::currentTimeMillis);
         assertThat(result.action(), instanceOf(IndexRequest.class));
         assertThat(result.getResponseResult(), equalTo(DocWriteResponse.Result.UPDATED));
         assertThat(result.updatedSourceAsMap().get("body").toString(), equalTo("foo"));
@@ -609,7 +609,7 @@ public class UpdateRequestTests extends OpenSearchTestCase {
         request = new UpdateRequest("test", "type1", "1").fromXContent(
             createParser(JsonXContent.jsonXContent, new BytesArray("{\"doc\": {\"body\": \"bar\"}}"))
         );
-        result = updateHelper.prepareUpdateIndexRequest(shardId, request, getResult, true);
+        result = updateHelper.prepareUpdateIndexRequest(shardId, request, getResult, true, System::currentTimeMillis);
 
         assertThat(result.action(), instanceOf(IndexRequest.class));
         assertThat(result.getResponseResult(), equalTo(DocWriteResponse.Result.UPDATED));
